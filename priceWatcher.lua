@@ -2,10 +2,6 @@ priceWatcher = {}
 addModEventListener(priceWatcher)
 
 function priceWatcher:loadMap(name)
-    if g_client ~= nil then
-        return
-    end
-
     print("[PW] Loading priceWatcher")
     self.FillTypes = g_fillTypeManager.fillTypes
     self.difficultyMult = g_currentMission.economyManager:getPriceMultiplier()
@@ -112,6 +108,10 @@ function priceWatcher:checkPrices()
 end
 
 function priceWatcher:saveXmlFile(xmlFile)
+    if g_currentMission:getIsClient() and not g_currentMission:getIsServer() and not g_currentMission.isMasterUser then
+        return
+    end
+  
     if not fileExists(xmlFile) then
         self:initializeXmlFile(xmlFile)
     end
@@ -122,6 +122,7 @@ function priceWatcher:saveXmlFile(xmlFile)
     saveXMLFile(xml)
     delete(xml)
 end
+
 
 function priceWatcher.round(number, decimalPlaces)
     return (math.floor(number * 10^decimalPlaces) / 10^decimalPlaces)
