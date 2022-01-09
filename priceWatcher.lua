@@ -2,6 +2,10 @@ priceWatcher = {}
 addModEventListener(priceWatcher)
 
 function priceWatcher:loadMap(name)
+    if g_server == nil then
+        return
+    end
+
     print("[PW] Loading priceWatcher")
     self.FillTypes = g_fillTypeManager.fillTypes
     self.difficultyMult = g_currentMission.economyManager:getPriceMultiplier()
@@ -77,22 +81,27 @@ end
 function priceWatcher:checkPrices()
     print("[PW] Checking Prices")
     local tableIsDirty = false
+    local currentHighPrices = {}
     for _,sellingStation in pairs(g_currentMission.economyManager.sellingStations) do
         for i,supported in pairs(sellingStation.station.supportedFillTypes) do
             local fillType = g_fillTypeManager:getFillTypeByIndex(i)
             local fillPrice = self.round(sellingStation.station:getEffectiveFillTypePrice(i), 3)
-            if self.FillMaxPrices[fillType.name] == nil then
-                print(string.format("%s, which hasn't been recorded was found selling for $%.3f at %s", fillType.title, fillPrice, sellingStation.station.getName()))
-                self.FillMaxPrices[fillType.name] = fillPrice
+            if ((currentHighPrices[fillType.name] == nil) or (fillPrice > currentHighPrices[fillType.name][3])) then
+                currentHighPrices[fillType.name] = {fillType.title, sellingStation.station.getName, fillPrice}
             end
-            if self.FillMaxPrices[fillType.name] < fillPrice then
-                g_currentMission.hud:addSideNotification(self.NEW_MAX_PRICE_COLOR, string.format("%s has reached a new max price at %s.  $%.3f -> $%.3f", fillType.title, sellingStation.station:getName(), self.FillMaxPrices[fillType.name], fillPrice), self.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
-                print(string.format("%s has reached a new max price at %s.  $%.3f -> $%.3f", fillType.title, sellingStation.station:getName(), self.FillMaxPrices[fillType.name], fillPrice))
-                self.FillMaxPrices[fillType.name] = fillPrice
-                tableIsDirty = true
-            elseif (self.FillMaxPrices[fillType.name] * self.TARGET_PERCENT_OF_MAX) <= fillPrice then
-                g_currentMission.hud:addSideNotification(self.HIGH_PRICE_COLOR, string.format("%s is at 90%% or more of it's max value at %s.  $%.3f/$%.3f", fillType.title, sellingStation.station:getName(), fillPrice, self.FillMaxPrices[fillType.name]), self.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
-            end
+        end
+    end
+    for k,v in pairs(currentHighPrices) do
+        if self.FillMaxPrices[k] == nil then
+            print(string.format("%s, which hasn't been recorded was found selling for $%.3f at %s", v[1], v[3], v[2]))
+            self.FillMaxPrices[k] = v[2]
+            tableIsDirty = true
+        elseif self.FillMaxPrices < v[2] then
+            g_currentMission.hud:addSideNotification(self.NEW_MAX_PRICE_COLOR, string.format("%s has reached a new max price at %s.  $%.3f -> $%.3f", v[1], v[3], self.FillMaxPrices[k], v[2]), self.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
+            self.FillMaxPrices[k] = v[2]
+            tableIsDirty = true
+        elseif (self.FillMaxPrices[k] * 0.9) <= v[2] then
+            g_currentMission.hud:addSideNotification(self.HIGH_PRICE_COLOR, string.format("%s is at 90%% or more of it's max value at %s.  $%.3f/$%.3f", v[1], v[3], v[2], self.FillMaxPrices[k]), self.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
         end
     end
     if tableIsDirty then
