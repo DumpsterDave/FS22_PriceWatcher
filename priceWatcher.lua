@@ -87,21 +87,21 @@ function priceWatcher:checkPrices()
             local fillType = g_fillTypeManager:getFillTypeByIndex(i)
             local fillPrice = self.round(sellingStation.station:getEffectiveFillTypePrice(i), 3)
             if ((currentHighPrices[fillType.name] == nil) or (fillPrice > currentHighPrices[fillType.name][3])) then
-                currentHighPrices[fillType.name] = {fillType.title, sellingStation.station.getName, fillPrice}
+                currentHighPrices[fillType.name] = {fillType.title, sellingStation.station:getName(), fillPrice}
             end
         end
     end
     for k,v in pairs(currentHighPrices) do
         if self.FillMaxPrices[k] == nil then
-            print(string.format("%s, which hasn't been recorded was found selling for $%.3f at %s", v[1], v[3], v[2]))
-            self.FillMaxPrices[k] = v[2]
+            print(string.format("%s, which hasn't been recorded was found selling at %s for $%.3f", v[1], v[2], v[3]))
+            self.FillMaxPrices[k] = v[3]
             tableIsDirty = true
-        elseif self.FillMaxPrices < v[2] then
-            g_currentMission.hud:addSideNotification(self.NEW_MAX_PRICE_COLOR, string.format("%s has reached a new max price at %s.  $%.3f -> $%.3f", v[1], v[3], self.FillMaxPrices[k], v[2]), self.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
-            self.FillMaxPrices[k] = v[2]
+        elseif self.FillMaxPrices[k] < v[3] then
+            g_currentMission.hud:addSideNotification(self.NEW_MAX_PRICE_COLOR, string.format("%s has reached a new max price at %s.  $%.3f -> $%.3f", v[1], v[2], self.FillMaxPrices[k], v[3]), self.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
+            self.FillMaxPrices[k] = v[3]
             tableIsDirty = true
-        elseif (self.FillMaxPrices[k] * 0.9) <= v[2] then
-            g_currentMission.hud:addSideNotification(self.HIGH_PRICE_COLOR, string.format("%s is at 90%% or more of it's max value at %s.  $%.3f/$%.3f", v[1], v[3], v[2], self.FillMaxPrices[k]), self.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
+        elseif (self.FillMaxPrices[k] * 0.9) <= v[3] then
+            g_currentMission.hud:addSideNotification(self.HIGH_PRICE_COLOR, string.format("%s is at 90%% or more of it's max value at %s.  $%.3f/$%.3f", v[1], v[2], v[3], self.FillMaxPrices[k]), self.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
         end
     end
     if tableIsDirty then
