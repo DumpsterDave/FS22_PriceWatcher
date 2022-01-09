@@ -2,7 +2,7 @@ priceWatcher = {}
 addModEventListener(priceWatcher)
 
 function priceWatcher:loadMap(name)
-    if g_server == nil then
+    if g_client ~= nil then
         return
     end
 
