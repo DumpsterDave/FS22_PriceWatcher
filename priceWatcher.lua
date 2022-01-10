@@ -122,26 +122,9 @@ function priceWatcher:checkPrices()
     end
     if tableIsDirty then
         Logging.info("[PW] - Tables Updated, saving to XML")
-        --self:saveXmlFile(self.xmlPath)
         self:saveToXML()
         tableIsDirty = false
     end
-end
-
-function priceWatcher:saveXmlFile(xmlFile)
-    if g_currentMission:getIsClient() and not g_currentMission:getIsServer() and not g_currentMission.isMasterUser then
-        return
-    end
-  
-    if not fileExists(xmlFile) then
-        self:initializeXmlFile(xmlFile)
-    end
-    local xml = loadXMLFile("priceWatcher", xmlFile)
-    for k,v in pairs(self.FillMaxPrices) do
-        setXMLFloat(xml, "priceWatcher.FillTypes." .. k, v)
-    end
-    saveXMLFile(xml)
-    delete(xml)
 end
 
 
