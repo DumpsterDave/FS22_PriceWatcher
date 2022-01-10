@@ -1,8 +1,9 @@
 priceWatcher = {}
+priceWatcher.version = "1.0.0.5"
 addModEventListener(priceWatcher)
 
 function priceWatcher:loadMap(name)
-    print("[PW] Loading priceWatcher")
+    Logging.info("[PW] Loading priceWatcher")
     self.FillTypes = g_fillTypeManager.fillTypes
     self.difficultyMult = g_currentMission.economyManager:getPriceMultiplier()
     self.FillMaxPrices = {}
@@ -20,7 +21,7 @@ function priceWatcher:loadMap(name)
         1
     }
     self.NOTIFICATION_DURATION = 5000
-    print("[PW] Detected difficulty multiplier: " .. self.difficultyMult)
+    Logging.info("[PW] Detected difficulty multiplier: " .. self.difficultyMult)
     local path = g_currentMission.missionInfo.savegameDirectory
     if path ~= nil then
         self.xmlPath = path .. "/priceWatcher.xml"
@@ -30,32 +31,51 @@ function priceWatcher:loadMap(name)
     Logging.info("[PW] - XML Path set to " .. self.xmlPath)
 
     if self.xmlPath ~= nil and fileExists(self.xmlPath) then
-        print("[PW] Begin parsing XML")
-        self:parseXmlFile(self.xmlPath)
-        print("[PW] Completed XML Parsing")
+        Logging.info("[PW] Begin parsing XML")
+        self:parseXmlFile()
+        Logging.info("[PW] Completed XML Parsing")
     else
-        print("[PW] XML file not found.  Creating...")
-        self:initializeXmlFile(self.xmlPath)
-        print("[PW] XML file created")
+        Logging.info("[PW] XML file not found.  Creating...")
+        self:initializeXmlFile()
+        Logging.info("[PW] XML file created")
     end
     --DebugUtil.printTableRecursively(g_currentMission.economyManager.sellingStations, ">>", 0, 6)
     g_messageCenter:subscribe(MessageType.HOUR_CHANGED, self.checkPrices, self)
+    FSBaseMission.saveSavegame = Utils.appendedFunction(FSBaseMission.saveSavegame, priceWatcher.saveSavegame)
 end
 
-function priceWatcher:parseXmlFile(xmlFile)
-    local xml = loadXMLFile("priceWatcher", xmlFile)
+function priceWatcher.saveSavegame()
+    if g_server ~= nil then
+        Logging.info("Savegame Detected, writing price data...")
+        priceWatcher:saveToXML()
+    end
+end
+
+function priceWatcher:saveToXML()
+    local xmlFile = createXMLFile("priceWatcher", self.xmlPath, "priceWatcher")
+
+    setXMLString(xmlFile, "priceWatcher.version", self.version)
+    for k,v in pairs(self.FillMaxPrices) do
+        setXMLFloat(xmlFile, "priceWatcher.FillTypes." .. k, v)
+    end
+    saveXMLFile(xmlFile)
+    Logging.info("[PW] - Price data saved")
+end
+
+function priceWatcher:parseXmlFile()
+    local xml = loadXMLFile("priceWatcher", self.xmlPath)
     for _,fillType in ipairs(g_fillTypeManager.fillTypes) do
         if fillType.pricePerLiter ~= 0 then
             self.FillMaxPrices[fillType.name] = Utils.getNoNil(getXMLFloat(xml, "priceWatcher.FillTypes." .. fillType.name), 0)
-            print("[PW] Loaded price data for " .. fillType.title)
+            Logging.info("[PW] Loaded price data for " .. fillType.title)
         end
     end
     delete(xml)
 end
 
-function priceWatcher:initializeXmlFile(xmlFile)
+function priceWatcher:initializeXmlFile()
     --create XMLFile
-    local xml = createXMLFile("priceWatcher", xmlFile, "priceWatcher")
+    local xml = createXMLFile("priceWatcher", self.xmlPath, "priceWatcher")
     --Populate table
     for _, fillType in ipairs(g_fillTypeManager.fillTypes) do
         if fillType.pricePerLiter > 0 then
@@ -75,7 +95,7 @@ function priceWatcher:initializeXmlFile(xmlFile)
 end
 
 function priceWatcher:checkPrices()
-    print("[PW] Checking Prices")
+    Logging.info("[PW] Checking Prices")
     local tableIsDirty = false
     local currentHighPrices = {}
     for _,sellingStation in pairs(g_currentMission.economyManager.sellingStations) do
@@ -102,7 +122,8 @@ function priceWatcher:checkPrices()
     end
     if tableIsDirty then
         Logging.info("[PW] - Tables Updated, saving to XML")
-        self:saveXmlFile(self.xmlPath)
+        --self:saveXmlFile(self.xmlPath)
+        self:saveToXML()
         tableIsDirty = false
     end
 end
