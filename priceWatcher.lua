@@ -1,46 +1,89 @@
 priceWatcher = {}
-priceWatcher.version = "1.0.0.5"
+priceWatcher.version = "1.0.0.6"
 addModEventListener(priceWatcher)
 
 function priceWatcher:loadMap(name)
     Logging.info("[PW] Loading priceWatcher")
-    self.FillTypes = g_fillTypeManager.fillTypes
-    self.difficultyMult = g_currentMission.economyManager:getPriceMultiplier()
-    self.FillMaxPrices = {}
-    self.TARGET_PERCENT_OF_MAX = 0.9
-    self.NEW_MAX_PRICE_COLOR = {
+    priceWatcher.FillTypes = g_fillTypeManager.fillTypes
+    priceWatcher.difficultyMult = g_currentMission.economyManager:getPriceMultiplier()
+    priceWatcher.FillMaxPrices = {}
+    priceWatcher.TARGET_PERCENT_OF_MAX = 0.9
+    priceWatcher.NEW_MAX_PRICE_COLOR = {
         0.0976,
 		0.624,
 		0,
 		1
     }
-    self.HIGH_PRICE_COLOR = {
+    priceWatcher.HIGH_PRICE_COLOR = {
         0,
         0.235,
         0.797,
         1
     }
-    self.NOTIFICATION_DURATION = 5000
-    Logging.info("[PW] Detected difficulty multiplier: " .. self.difficultyMult)
+    priceWatcher.NOTIFICATION_DURATION = 5000
+    priceWatcher.DO_NOT_TRACK_FILLTYPES = {
+        OILSEEDRADISH=true,
+        SHEEP_BLACK_WELSH=true,
+        SHEEP_LANDRACE=true,
+        SHEEP_STEINSCHAF=true,
+        SHEEP_SWISS_MOUNTAIN=true,
+        SEEDS=true,
+        DIESEL=true,
+        SILAGE_ADDITIVE=true,
+        PIGFOOD=true,
+        ROUNDBALE=true,
+        ROUNDBALE_COTTON=true,
+        ROUNDBALE_GRASS=true,
+        ROUNDBALE_DRYGRASS=true,
+        ROUNDBALE_WOOD=true,
+        SQUAREBALE=true,
+        SQUAREBALE_COTTON=true,
+        SQUAREBALE_GRASS=true,
+        SQUAREBALE_DRYGRASS=true,
+        SQUAREBALE_WOOD=true,
+        FERTILIZER=true,
+        LIQUIDFERTILIZER=true,
+        HERBICIDE=true,
+        TREESAPLINGS=true,
+        LIQUIDMANURE=true,
+        PIG_BERKSHIRE=true,
+        PIG_BLACK_PIED=true,
+        PIG_LANDRACE=true,
+        DRYGRASS_WINDROW=true,
+        GRASS_WINDROW=true,
+        COW_ANGUS=true,
+        COW_HOLSTEIN=true,
+        COW_LIMOUSIN=true,
+        COW_SWISS_BROWN=true,
+        LIME=true,
+        WATER=true,
+        MINERAL_FEED=true,
+        ELECTRICCHARGE=true,
+        FORAGE=true,
+        FORAGE_MIXING=true,
+        DEF=true,
+        METHANE=true
+    }
+    Logging.info("[PW] Detected difficulty multiplier: " .. priceWatcher.difficultyMult)
     local path = g_currentMission.missionInfo.savegameDirectory
     if path ~= nil then
-        self.xmlPath = path .. "/priceWatcher.xml"
+        priceWatcher.xmlPath = path .. "/priceWatcher.xml"
     else
-        self.xmlPath = getUserProfileAppPath() .. "savegame" .. g_currentMission.missionInfo.savegameIndex .. "/priceWatcher.xml"
+        priceWatcher.xmlPath = getUserProfileAppPath() .. "savegame" .. g_currentMission.missionInfo.savegameIndex .. "/priceWatcher.xml"
     end
-    Logging.info("[PW] - XML Path set to " .. self.xmlPath)
+    Logging.info("[PW] - XML Path set to " .. priceWatcher.xmlPath)
 
-    if self.xmlPath ~= nil and fileExists(self.xmlPath) then
+    if priceWatcher.xmlPath ~= nil and fileExists(priceWatcher.xmlPath) then
         Logging.info("[PW] Begin parsing XML")
-        self:parseXmlFile()
+        priceWatcher:parseXmlFile()
         Logging.info("[PW] Completed XML Parsing")
     else
         Logging.info("[PW] XML file not found.  Creating...")
-        self:initializeXmlFile()
+        priceWatcher:initializeXmlFile()
         Logging.info("[PW] XML file created")
     end
     --DebugUtil.printTableRecursively(g_currentMission.economyManager.sellingStations, ">>", 0, 6)
-    g_messageCenter:subscribe(MessageType.HOUR_CHANGED, self.checkPrices, self)
+    g_messageCenter:subscribe(MessageType.HOUR_CHANGED, priceWatcher.checkPrices, priceWatcher)
     FSBaseMission.saveSavegame = Utils.appendedFunction(FSBaseMission.saveSavegame, priceWatcher.saveSavegame)
 end
 
@@ -52,10 +95,10 @@ function priceWatcher.saveSavegame()
 end
 
 function priceWatcher:saveToXML()
-    local xmlFile = createXMLFile("priceWatcher", self.xmlPath, "priceWatcher")
+    local xmlFile = createXMLFile("priceWatcher", priceWatcher.xmlPath, "priceWatcher")
 
-    setXMLString(xmlFile, "priceWatcher.version", self.version)
-    for k,v in pairs(self.FillMaxPrices) do
+    setXMLString(xmlFile, "priceWatcher.version", priceWatcher.version)
+    for k,v in pairs(priceWatcher.FillMaxPrices) do
         setXMLFloat(xmlFile, "priceWatcher.FillTypes." .. k, v)
     end
     saveXMLFile(xmlFile)
@@ -63,10 +106,10 @@ function priceWatcher:saveToXML()
 end
 
 function priceWatcher:parseXmlFile()
-    local xml = loadXMLFile("priceWatcher", self.xmlPath)
+    local xml = loadXMLFile("priceWatcher", priceWatcher.xmlPath)
     for _,fillType in ipairs(g_fillTypeManager.fillTypes) do
         if fillType.pricePerLiter ~= 0 then
-            self.FillMaxPrices[fillType.name] = Utils.getNoNil(getXMLFloat(xml, "priceWatcher.FillTypes." .. fillType.name), 0)
+            priceWatcher.FillMaxPrices[fillType.name] = Utils.getNoNil(getXMLFloat(xml, "priceWatcher.FillTypes." .. fillType.name), 0)
             Logging.info("[PW] Loaded price data for " .. fillType.title)
         end
     end
@@ -75,54 +118,54 @@ end
 
 function priceWatcher:initializeXmlFile()
     --create XMLFile
-    local xml = createXMLFile("priceWatcher", self.xmlPath, "priceWatcher")
+    --local xml = createXMLFile("priceWatcher", priceWatcher.xmlPath, "priceWatcher")
     --Populate table
     for _, fillType in ipairs(g_fillTypeManager.fillTypes) do
-        if fillType.pricePerLiter > 0 then
+        if ((fillType.pricePerLiter > 0) and (priceWatcher.DO_NOT_TRACK_FILLTYPES[fillType.name] == nil)) then
             local seasonMax = 1
             for _, v in ipairs(fillType.economy.factors) do
                 if v > seasonMax then
                     seasonMax = v
                 end
             end
-            local maxPrice = self.round(fillType.pricePerLiter * self.difficultyMult * seasonMax, 3)
-            self.FillMaxPrices[fillType.name] = maxPrice
-            setXMLFloat(xml, "priceWatcher.FillTypes." .. fillType.name, maxPrice)
+            local maxPrice = priceWatcher.round((fillType.pricePerLiter * seasonMax + 0.2 * fillType.pricePerLiter) * priceWatcher.difficultyMult, 3)
+            priceWatcher.FillMaxPrices[fillType.name] = maxPrice
+            --setXMLFloat(xml, "priceWatcher.FillTypes." .. fillType.name, maxPrice)
         end
     end
-    saveXMLFile(xml)
-    delete(xml)
+    --saveXMLFile(xml)
+    --delete(xml)
 end
 
 function priceWatcher:checkPrices()
-    Logging.info("[PW] Checking Prices")
+    Logging.info("[PW] - Checking Prices")
     local tableIsDirty = false
     local currentHighPrices = {}
     for _,sellingStation in pairs(g_currentMission.economyManager.sellingStations) do
         for i,supported in pairs(sellingStation.station.supportedFillTypes) do
             local fillType = g_fillTypeManager:getFillTypeByIndex(i)
-            local fillPrice = self.round(sellingStation.station:getEffectiveFillTypePrice(i), 3)
-            if ((currentHighPrices[fillType.name] == nil) or (fillPrice > currentHighPrices[fillType.name][3])) then
+            local fillPrice = priceWatcher.round(sellingStation.station:getEffectiveFillTypePrice(i), 3)
+            if ((priceWatcher.DO_NOT_TRACK_FILLTYPES[fillType.name] == nil) and ((currentHighPrices[fillType.name] == nil) or (fillPrice > currentHighPrices[fillType.name][3]))) then
                 currentHighPrices[fillType.name] = {fillType.title, sellingStation.station:getName(), fillPrice}
             end
         end
     end
     for k,v in pairs(currentHighPrices) do
-        if self.FillMaxPrices[k] == nil then
+        if priceWatcher.FillMaxPrices[k] == nil then
             print(string.format("%s, which hasn't been recorded was found selling at %s for $%.3f", v[1], v[2], v[3]))
-            self.FillMaxPrices[k] = v[3]
+            priceWatcher.FillMaxPrices[k] = v[3]
             tableIsDirty = true
-        elseif self.FillMaxPrices[k] < v[3] then
-            g_currentMission.hud:addSideNotification(self.NEW_MAX_PRICE_COLOR, string.format("%s has reached a new max price at %s.  $%.3f -> $%.3f", v[1], v[2], self.FillMaxPrices[k], v[3]), self.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
-            self.FillMaxPrices[k] = v[3]
+        elseif priceWatcher.FillMaxPrices[k] < v[3] then
+            g_currentMission.hud:addSideNotification(priceWatcher.NEW_MAX_PRICE_COLOR, string.format("%s has reached a new max price at %s.  $%.3f -> $%.3f", v[1], v[2], priceWatcher.FillMaxPrices[k], v[3]), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
+            priceWatcher.FillMaxPrices[k] = v[3]
             tableIsDirty = true
-        elseif (self.FillMaxPrices[k] * 0.9) <= v[3] then
-            g_currentMission.hud:addSideNotification(self.HIGH_PRICE_COLOR, string.format("%s is at 90%% or more of it's max value at %s.  $%.3f/$%.3f", v[1], v[2], v[3], self.FillMaxPrices[k]), self.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
+        elseif (priceWatcher.FillMaxPrices[k] * 0.9) <= v[3] then
+            g_currentMission.hud:addSideNotification(priceWatcher.HIGH_PRICE_COLOR, string.format("%s is at 90%% or more of it's max value at %s.  $%.3f/$%.3f", v[1], v[2], v[3], priceWatcher.FillMaxPrices[k]), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
         end
     end
     if tableIsDirty then
-        Logging.info("[PW] - Tables Updated, saving to XML")
-        self:saveToXML()
+        Logging.info("[PW] - Tables Updated")
+        --priceWatcher:saveToXML()
         tableIsDirty = false
     end
 end
