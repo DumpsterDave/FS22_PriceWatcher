@@ -1,5 +1,5 @@
 priceWatcher = {}
-priceWatcher.version = "1.0.0.6"
+priceWatcher.version = "1.0.0.7"
 addModEventListener(priceWatcher)
 
 function priceWatcher:loadMap(name)
@@ -20,7 +20,7 @@ function priceWatcher:loadMap(name)
         0.797,
         1
     }
-    priceWatcher.NOTIFICATION_DURATION = 5000
+    priceWatcher.NOTIFICATION_DURATION = 15000
     priceWatcher.DO_NOT_TRACK_FILLTYPES = {
         OILSEEDRADISH=true,
         SHEEP_BLACK_WELSH=true,
@@ -62,7 +62,8 @@ function priceWatcher:loadMap(name)
         FORAGE=true,
         FORAGE_MIXING=true,
         DEF=true,
-        METHANE=true
+        METHANE=true,
+        STONE=true
     }
     Logging.info("[PW] Detected difficulty multiplier: " .. priceWatcher.difficultyMult)
     local path = g_currentMission.missionInfo.savegameDirectory
