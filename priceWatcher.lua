@@ -157,11 +157,11 @@ function priceWatcher:checkPrices()
             priceWatcher.FillMaxPrices[k] = v[3]
             tableIsDirty = true
         elseif priceWatcher.FillMaxPrices[k] < v[3] then
-            g_currentMission.hud:addSideNotification(priceWatcher.NEW_MAX_PRICE_COLOR, string.format("%s has reached a new max price at %s.  $%.3f -> $%.3f", v[1], v[2], priceWatcher.FillMaxPrices[k], v[3]), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
+            g_currentMission.hud:addSideNotification(priceWatcher.NEW_MAX_PRICE_COLOR, string.format(g_i8n:getText("PW_NEW_MAX"), v[1], v[2], priceWatcher.FillMaxPrices[k], v[3]), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
             priceWatcher.FillMaxPrices[k] = v[3]
             tableIsDirty = true
         elseif (priceWatcher.FillMaxPrices[k] * 0.9) <= v[3] then
-            g_currentMission.hud:addSideNotification(priceWatcher.HIGH_PRICE_COLOR, string.format("%s is at 90%% or more of it's max value at %s.  $%.3f/$%.3f", v[1], v[2], v[3], priceWatcher.FillMaxPrices[k]), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
+            g_currentMission.hud:addSideNotification(priceWatcher.HIGH_PRICE_COLOR, string.format(g_i8n:getText("PW_CLOSE_MAX"), v[1], v[2], v[3], priceWatcher.FillMaxPrices[k]), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
         end
     end
     if tableIsDirty then
@@ -171,7 +171,18 @@ function priceWatcher:checkPrices()
     end
 end
 
-
 function priceWatcher.round(number, decimalPlaces)
     return (math.floor(number * 10^decimalPlaces) / 10^decimalPlaces)
+end
+
+function priceWatcher.onMissionWillLoad(i18n)
+	priceWatcher.addModTranslations(i18n)
+end
+
+function priceWatcher.addModTranslations(i18n)
+	local global = getfenv(0).g_i18n.texts
+
+	for key, text in pairs(i18n.texts) do
+		global[key] = text
+	end
 end

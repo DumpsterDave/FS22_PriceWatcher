@@ -14,6 +14,8 @@
 
         <sourceFile filename="priceWatcher.lua" />
     </extraSourceFiles>
-	
+
+	<l10n filenamePrefix="translations/translation" />
+    
     <multiplayer supported="true"/>
 </modDesc>

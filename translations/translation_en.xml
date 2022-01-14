@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<l10n>
+    <translationContributors>DumpsterDave</translationContributors>
+    <texts>
+        <text name="PW_NEW_MAX" text="%s has reached a new max price at %s.  $%.3f -> $%.3f" />
+        <text name="PW_CLOSE_MAX" text="%s is at 90%% or more of it's max value at %s.  $%.3f/$%.3f" />
+    </texts>
+</l10n>
