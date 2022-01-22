@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="61">
     <author>DumpsterDave - defcon1gaming.com</author>
-    <version>1.0.0.7</version>
+    <version>1.0.1.0</version>
     <iconFilename>icon.dds</iconFilename>
     <title>
         <en>PriceWatcher by DEFCON 1 Gaming.com</en>
@@ -11,7 +11,6 @@
     </description>
     
     <extraSourceFiles>
-
         <sourceFile filename="priceWatcher.lua" />
     </extraSourceFiles>
 

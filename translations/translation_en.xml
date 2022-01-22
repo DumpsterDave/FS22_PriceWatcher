@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <l10n>
     <translationContributors>DumpsterDave</translationContributors>
+    <locale>en</locale>
     <texts>
-        <text name="PW_NEW_MAX" text="%s has reached a new max price at %s.  $%.3f -> $%.3f" />
-        <text name="PW_CLOSE_MAX" text="%s is at 90%% or more of it's max value at %s.  $%.3f/$%.3f" />
+        <text name="PW_NEW_ALL_TIME_MAX" text="%s is selling for an all time high price of $%.3f at %s." />
+        <text name="PW_NEW_TWELVE_MONTH_HIGH" text="%s is selling for a new annual high price of $%.3f at %s" />
+        <text name="PW_CLOSE_MAX" text="%s is at %d%% or more of it's annual high at %s.  $%.3f/$%.3f" />
     </texts>
 </l10n>
