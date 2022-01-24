@@ -15,18 +15,24 @@ Upon first use, a config XML will be generated in the modSettings folder.  The d
 ### Configure Tracking
 `<SOYBEANS>false</SOYBEANS>` can be changed to `<SOYBEANS>true</SOYBEANS>` to start tracking Soybeans.
 ### Configure Price Threshold
-`<PriceThreshold>0.950000</PriceThreshold>`
+```xml
+<PriceThreshold>0.950000</PriceThreshold>
+```
 
 The price threshold is the point at which Price Watcher sends a notification about a high price.  By default, this set to 95%.  Any positive decimal value between 0 and 1 can be used.  Note that the lower the threshold is set, the more alerts you will get.
 ### Configure Notification Duration
-`<NotificationDuration>10</NotificationDuration>`
+```xml
+<NotificationDuration>10</NotificationDuration>
+```
 
 The notification duration is the number of seconds a notification will remain on the screen.  Depending on your game speed settings and number of items tracked, setting this value too high could impact other notifications such as worker wages, mission completion, great demands, etc.  The default value is 10.
 ### Configure Colors
-`<AllTimeHighColor>0.767 0.006 0.006 1</AllTimeHighColor>`
-`<AnnualHighColor>1 0.687 0 1</AnnualHighColor>`
-`<NewAnnualHighColor>0.0976 0.624 0 1</NewAnnualHighColor>`
-`<HighPriceColor>0 0.235 0.797 1</HighPriceColor>`
+```xml
+<AllTimeHighColor>0.767 0.006 0.006 1</AllTimeHighColor>
+<AnnualHighColor>1 0.687 0 1</AnnualHighColor>
+<NewAnnualHighColor>0.0976 0.624 0 1</NewAnnualHighColor>
+<HighPriceColor>0 0.235 0.797 1</HighPriceColor>
+```
 
 The color of notifications can be configured by setting the RGBA value.  Note that these values are linear RGB.  You can use an online calculator such as [davengrace's Color Space Conversion](http://davengrace.com/cgi-bin/cspace.pl) to convert 8-bit sRGB values to their linear counterparts.
 
