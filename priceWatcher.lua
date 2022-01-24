@@ -51,11 +51,13 @@ priceWatcher.DO_NOT_TRACK_FILLTYPES = {
     PIG=true,
     CHICKEN=true,
     SQUARE_BALE_GRASS=true,
-    SQUARE_BALE_HAY=true
+    SQUARE_BALE_HAY=true,
+    STONES=true
 }
 priceWatcher.AllTimeHighPrices = {}
 priceWatcher.AnnualHighPrices = {}
-
+priceWatcher.configXML = nil
+priceWatcher.TrackPrices = {}
 addModEventListener(priceWatcher)
 
 function priceWatcher:loadMap(name)
@@ -69,6 +71,14 @@ function priceWatcher:loadMap(name)
         priceWatcher.xmlPath = path .. "/priceWatcher.xml"
     else
         priceWatcher.xmlPath = getUserProfileAppPath() .. "savegame" .. g_currentMission.missionInfo.savegameIndex .. "/priceWatcher.xml"
+    end
+    if g_client ~=nil then
+        priceWatcher.configXML = getUserProfileAppPath() .. "modSettings/priceWatcherConfig.xml"
+        if fileExists(priceWatcher.configXML) then
+            priceWatcher.loadConfig()
+        else
+            priceWatcher.initializeConfig()
+        end
     end
     if fileExists(priceWatcher.xmlPath) then
         priceWatcher.parseXmlFile() 
@@ -97,7 +107,9 @@ function priceWatcher.saveToXML()
         setXMLFloat(xmlFile, "priceWatcher.FillTypes." .. k .. "#AllTimeHigh", v)
     end
     for k,v in pairs(priceWatcher.AnnualHighPrices) do
-        setXMLFloat(xmlFile, "priceWatcher.FillTypes." .. k .. "#AnnualHigh", v)
+        for i = 1, 13 do
+            setXMLFloat(xmlFile, "priceWatcher.FillTypes." .. k .. ".period" .. i, v[i])
+        end
     end
     saveXMLFile(xmlFile)
     Logging.info("[PW] - Price data saved")
@@ -108,30 +120,91 @@ function priceWatcher.parseXmlFile()
     for _,fillType in ipairs(g_fillTypeManager.fillTypes) do
         local saveSafeName = string.upper(string.gsub(fillType.title, " ", "_"))
         if priceWatcher.DO_NOT_TRACK_FILLTYPES[saveSafeName] == nil then
-            priceWatcher.AnnualHighPrices[saveSafeName] = Utils.getNoNil(getXMLFloat(xml, "priceWatcher.FillTypes." .. saveSafeName .. "#AnnualHigh"), 0)
+            local periods = {}
+            for i = 1, 13 do
+                local price = getXMLFloat(xml, "priceWatcher.FillTypes." .. saveSafeName .. ".period" .. i)
+                periods[i] = Utils.getNoNil(price, 0)
+            end
+            priceWatcher.AnnualHighPrices[saveSafeName] = periods
             priceWatcher.AllTimeHighPrices[saveSafeName] = Utils.getNoNil(getXMLFloat(xml, "priceWatcher.FillTypes." .. saveSafeName .. "#AllTimeHigh"), 0)
-            Logging.info(string.format("[PW] Loaded price data for %s: {%.3f, %.3f}", fillType.title, priceWatcher.AnnualHighPrices[saveSafeName], priceWatcher.AllTimeHighPrices[saveSafeName]))
+            Logging.info(string.format("[PW] Loaded price data for %s: {%.3f, %.3f}", fillType.title, priceWatcher.AnnualHighPrices[saveSafeName][1], priceWatcher.AllTimeHighPrices[saveSafeName]))
         end
     end
     delete(xml)
 end
 
+function priceWatcher.loadConfig()
+    Logging.info("[PW] - Loading mod settings")
+    local xmlFile = loadXMLFile("priceWatcher", priceWatcher.configXML)
+    local trackedFillTypes = 0
+    for _,fillType in ipairs(g_fillTypeManager.fillTypes) do
+        local saveSafeName = string.upper(string.gsub(fillType.title, " ", "_"))
+        priceWatcher.TrackPrices[saveSafeName] = Utils.getNoNil(getXMLBool(xmlFile, "priceWatcher.Monitor." .. saveSafeName), false)
+        if priceWatcher.TrackPrices[saveSafeName] ~= false then
+            trackedFillTypes = trackedFillTypes + 1
+            Logging.info("[PW] - " .. fillType.title .. " Enabled = TRUE")
+        end
+    end
+    Logging.info("[PW] - Tracking " .. trackedFillTypes .. " fill types")
+    priceWatcher.TARGET_PERCENT_OF_MAX = Utils.getNoNil(getXMLFloat(xmlFile, "priceWatcher.PriceThreshold"), 0.95)
+    priceWatcher.NOTIFICATION_DURATION = Utils.getNoNil(getXMLInt(xmlFile, "priceWatcher.NotificationDuration"), 10) * 1000
+    DebugUtil.printTableRecursively(priceWatcher.ALL_TIME_HIGH_COLOR)
+    priceWatcher.ALL_TIME_HIGH_COLOR = string.getVectorN(getXMLString(xmlFile, "priceWatcher.AllTimeHighColor"), 4) or {0.767, 0.006, 0.006, 1}
+    DebugUtil.printTableRecursively(priceWatcher.ALL_TIME_HIGH_COLOR)
+    DebugUtil.printTableRecursively(priceWatcher.TWELVE_MONTH_HIGH_COLOR)
+    priceWatcher.TWELVE_MONTH_HIGH_COLOR = string.getVectorN(getXMLString(xmlFile, "priceWatcher.AnnualHighColor"), 4) or {1, 0.687, 0, 1}
+    DebugUtil.printTableRecursively(priceWatcher.TWELVE_MONTH_HIGH_COLOR)
+    DebugUtil.printTableRecursively(priceWatcher.NEW_TWELVE_MONTH_HIGH_COLOR)
+    priceWatcher.HIGH_PRICE_COLOR =string.getVectorN(getXMLString(xmlFile, "priceWatcher.NewAnnualHighColor"), 4) or {0.0976, 0.624, 0, 1}
+    DebugUtil.printTableRecursively(priceWatcher.NEW_TWELVE_MONTH_HIGH_COLOR)
+    DebugUtil.printTableRecursively(priceWatcher.HIGH_PRICE_COLOR)
+    priceWatcher.HIGH_PRICE_COLOR =string.getVectorN(getXMLString(xmlFile, "priceWatcher.HighPriceColor"), 4) or {0, 0.235, 0.797, 1}
+    DebugUtil.printTableRecursively(priceWatcher.HIGH_PRICE_COLOR)
+end
+
 function priceWatcher.initializePriceData()
     for _,fillType in ipairs(g_fillTypeManager.fillTypes) do
         local saveSafeName = string.upper(string.gsub(fillType.title, " ", "_"))
+        local currentPeriod = g_currentMission.environment.currentPeriod
         if (priceWatcher.DO_NOT_TRACK_FILLTYPES[saveSafeName] == nil) then
-            local max = fillType.pricePerLiter
-            for i,v in ipairs(fillType.economy.history) do 
-                if v > max then
-                    max = v
+            local max = fillType.pricePerLiter * g_currentMission.economyManager.getPriceMultiplier()
+            local hist = {}
+            for i = 1, 13 do
+                local histPeriod = (currentPeriod - i) % 12 + 1
+                hist[i] = Utils.getNoNil(fillType.economy.history[histPeriod], 0) * g_currentMission.economyManager.getPriceMultiplier()
+                if hist[i] > max then
+                    max = hist[i]
                 end
             end
-            max = max * g_currentMission.economyManager:getPriceMultiplier()
+            priceWatcher.AnnualHighPrices[saveSafeName] = hist
             max = priceWatcher.round(max, 3)
-            priceWatcher.AnnualHighPrices[saveSafeName] = max
             priceWatcher.AllTimeHighPrices[saveSafeName] = max
         end
     end
+
+end
+
+function priceWatcher.initializeConfig()
+    local xmlFile = createXMLFile("priceWatcher", priceWatcher.configXML, "priceWatcher")
+    setXMLString(xmlFile, "priceWatcher.version", priceWatcher.VERSION)
+    for _,fillType in ipairs(g_fillTypeManager.fillTypes) do 
+        local saveSafeName = string.upper(string.gsub(fillType.title, " ", "_"))
+        if priceWatcher.DO_NOT_TRACK_FILLTYPES[saveSafeName] == nil then
+            setXMLBool(xmlFile, "priceWatcher.Monitor." .. saveSafeName, true)
+            priceWatcher.TrackPrices[saveSafeName] = true
+        else
+            setXMLBool(xmlFile, "priceWatcher.Monitor." .. saveSafeName, false)
+            priceWatcher.TrackPrices[saveSafeName] = false
+        end
+    end
+    setXMLFloat(xmlFile, "priceWatcher.PriceThreshold", priceWatcher.TARGET_PERCENT_OF_MAX)
+    setXMLInt(xmlFile, "priceWatcher.NotificationDuration", priceWatcher.NOTIFICATION_DURATION / 1000)
+    setXMLString(xmlFile, "priceWatcher.AllTimeHighColor", priceWatcher.vector4ToString(priceWatcher.ALL_TIME_HIGH_COLOR))
+    setXMLString(xmlFile, "priceWatcher.AnnualHighColor", priceWatcher.vector4ToString(priceWatcher.TWELVE_MONTH_HIGH_COLOR))
+    setXMLString(xmlFile, "priceWatcher.NewAnnualHighColor", priceWatcher.vector4ToString(priceWatcher.NEW_TWELVE_MONTH_HIGH_COLOR))
+    setXMLString(xmlFile, "priceWatcher.HighPriceColor", priceWatcher.vector4ToString(priceWatcher.HIGH_PRICE_COLOR))
+    saveXMLFile(xmlFile)
+    Logging.info("[PW] - Initialized config file to " .. priceWatcher.configXML)
 end
 
 function priceWatcher.rollPeriod() 
@@ -139,16 +212,38 @@ function priceWatcher.rollPeriod()
         local saveSafeName = string.upper(string.gsub(fillType.title, " ", "_"))
         if (priceWatcher.DO_NOT_TRACK_FILLTYPES[saveSafeName] == nil) then
             local max = fillType.pricePerLiter
-            for i,v in ipairs(fillType.economy.history) do 
-                if v > max then
-                    max = v
-                end
+            for i = 1,12 do
+                priceWatcher.AnnualHighPrices[saveSafeName][i + 1] = priceWatcher.AnnualHighPrices[saveSafeName][i]
             end
-            max = max * g_currentMission.economyManager:getPriceMultiplier()
-            max = priceWatcher.round(max, 3)
-            priceWatcher.AnnualHighPrices[saveSafeName] = max
+            priceWatcher.AnnualHighPrices[saveSafeName][1] = priceWatcher.getCurrentHighPrice(fillType)
         end
     end
+end
+
+function priceWatcher.vector4ToString(vector)
+    return string.format("%0.3f %0.3f %0.3f %0.3f", vector[1], vector[2], vector[3], vector[4])
+end
+
+function priceWatcher.stringToVector4(str)
+    local retTable = {}
+    for part in string.gmatch(str, "([%s]+)") do
+        table.insert(retTable, part)
+    end
+    DebugUtil.printTableRecursively(retTable)
+    return retTable
+end
+
+function priceWatcher.getCurrentHighPrice(fillType)
+    local maxPrice = 0
+    for _,sellingStation in pairs(g_currentMission.economyManager.sellingStations) do
+        if sellingStation.station.supportedFillTypes[fillType] ~= nil then
+            if sellingStation.station:getEffectiveFillTypePrice(fillType) > maxPrice then
+                maxPrice = sellingStation.station.getEffectiveFillTypePrice(fillType)
+            end
+        end
+    end
+    maxPrice = priceWatcher.round(maxPrice, 3)
+    return maxPrice
 end
 
 function priceWatcher.checkPrices()
@@ -166,22 +261,48 @@ function priceWatcher.checkPrices()
         end
     end
     for k,v in pairs(currentHighPrices) do
+        if priceWatcher.AnnualHighPrices[k][1] < v[3] then
+            priceWatcher.AnnualHighPrices[k][1] = v[3]
+        end
+        local annualHighPrice = 0
+        for i = 1,13 do
+            if priceWatcher.AnnualHighPrices[k][i] > annualHighPrice then
+                annualHighPrice = priceWatcher.AnnualHighPrices[k][i]
+            end
+        end
         if priceWatcher.AllTimeHighPrices[k] <= v[3] or priceWatcher.AllTimeHighPrices[k] == nil then
             priceWatcher.AllTimeHighPrices[k] = v[3]
-            g_currentMission.hud:addSideNotification(priceWatcher.ALL_TIME_HIGH_COLOR, string.format(g_i18n:getText("PW_NEW_ALL_TIME_MAX"), v[1], v[3], v[2]), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
+            priceWatcher.notifyClient(k, 1, v[1], v[2], v[3], nil, nil)
+            --g_currentMission.hud:addSideNotification(priceWatcher.ALL_TIME_HIGH_COLOR, string.format(g_i18n:getText("PW_NEW_ALL_TIME_MAX"), v[1], v[3], v[2]), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
             tableIsDirty = true
-        elseif priceWatcher.AnnualHighPrices[k] <= v[3] or priceWatcher.AnnualHighPrices[k] == nil then
-            priceWatcher.AnnualHighPrices[k] = v[3]
-            g_currentMission.hud:addSideNotification(priceWatcher.NEW_TWELVE_MONTH_HIGH_COLOR, string.format(g_i18n:getText("PW_NEW_TWELVE_MONTH_HIGH"), v[1], v[3], v[2]), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
+        elseif annualHighPrice <= v[3] or priceWatcher.AnnualHighPrices[k] == nil then
+            priceWatcher.AnnualHighPrices[k][1] = v
+            priceWatcher.notifyClient(k, 2, v[1], v[2], v[3], nil, nil)
+            --g_currentMission.hud:addSideNotification(priceWatcher.NEW_TWELVE_MONTH_HIGH_COLOR, string.format(g_i18n:getText("PW_NEW_TWELVE_MONTH_HIGH"), v[1], v[3], v[2]), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
             tableIsDirty = true
-        elseif (priceWatcher.AnnualHighPrices[k] * priceWatcher.TARGET_PERCENT_OF_MAX) <= v[3] then
+        elseif (annualHighPrice * priceWatcher.TARGET_PERCENT_OF_MAX) <= v[3] then
             local high = math.ceil(priceWatcher.TARGET_PERCENT_OF_MAX * 100)
-            g_currentMission.hud:addSideNotification(priceWatcher.HIGH_PRICE_COLOR, string.format(g_i18n:getText("PW_CLOSE_MAX"), v[1], high, v[2], v[3], priceWatcher.AnnualHighPrices[k]), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
+            priceWatcher.notifyClient(k, 3, v[1], v[2], v[3], high, annualHighPrice)
+            --g_currentMission.hud:addSideNotification(priceWatcher.HIGH_PRICE_COLOR, string.format(g_i18n:getText("PW_CLOSE_MAX"), v[1], high, v[2], v[3], annualHighPrice), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
         end
     end
     if tableIsDirty then
         Logging.info("[PW] - Tables Updated")
         tableIsDirty = false
+    end
+end
+
+function priceWatcher.notifyClient(saveSafeName, notificationType, fillTypeTitle, fillStationName, fillPrice, pct, annualHigh)
+    if priceWatcher.TrackPrices[saveSafeName] ~= false then
+        if notificationType == 1 then
+            g_currentMission.hud:addSideNotification(priceWatcher.ALL_TIME_HIGH_COLOR, string.format(g_i18n:getText("PW_NEW_ALL_TIME_MAX"), fillTypeTitle, fillPrice, fillStationName), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
+        elseif notificationType == 2 then
+            g_currentMission.hud:addSideNotification(priceWatcher.NEW_TWELVE_MONTH_HIGH_COLOR, string.format(g_i18n:getText("PW_NEW_TWELVE_MONTH_HIGH"), fillTypeTitle, fillPrice, fillStationName), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
+        elseif notificationType == 3 then
+            g_currentMission.hud:addSideNotification(priceWatcher.HIGH_PRICE_COLOR, string.format(g_i18n:getText("PW_CLOSE_MAX"), fillTypeTitle, pct, fillStationName, fillPrice, annualHigh), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
+        else
+            Logging.warning("[PW] - notifyClient passed unknown notifcationType: " .. notificationType)
+        end
     end
 end
 
