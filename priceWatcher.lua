@@ -247,48 +247,48 @@ function priceWatcher.getCurrentHighPrice(fillType)
 end
 
 function priceWatcher.checkPrices()
-    Logging.info("[PW] - Checking Prices")
-    local tableIsDirty = false
-    local currentHighPrices = {}
-    for _,sellingStation in pairs(g_currentMission.economyManager.sellingStations) do
-        for i,supported in pairs(sellingStation.station.supportedFillTypes) do
-            local fillType = g_fillTypeManager:getFillTypeByIndex(i)
-            local saveSafeName = string.upper(string.gsub(fillType.title, " ", "_"))
-            local fillPrice = priceWatcher.round(sellingStation.station:getEffectiveFillTypePrice(i), 3)
-            if ((priceWatcher.DO_NOT_TRACK_FILLTYPES[saveSafeName] == nil) and ((currentHighPrices[saveSafeName] == nil) or (fillPrice > currentHighPrices[saveSafeName][3]))) then
-                currentHighPrices[saveSafeName] = {fillType.title, sellingStation.station:getName(), fillPrice}
+    if g_server ~= nil or g_dedicatedServer ~= nil then
+        Logging.info("[PW] - Checking Prices")
+        local tableIsDirty = false
+        local currentHighPrices = {}
+        for _,sellingStation in pairs(g_currentMission.economyManager.sellingStations) do
+            for i,supported in pairs(sellingStation.station.supportedFillTypes) do
+                local fillType = g_fillTypeManager:getFillTypeByIndex(i)
+                local saveSafeName = string.upper(string.gsub(fillType.title, " ", "_"))
+                local fillPrice = priceWatcher.round(sellingStation.station:getEffectiveFillTypePrice(i), 3)
+                if ((priceWatcher.DO_NOT_TRACK_FILLTYPES[saveSafeName] == nil) and ((currentHighPrices[saveSafeName] == nil) or (fillPrice > currentHighPrices[saveSafeName][3]))) then
+                    currentHighPrices[saveSafeName] = {fillType.title, sellingStation.station:getName(), fillPrice}
+                end
             end
         end
-    end
-    for k,v in pairs(currentHighPrices) do
-        if priceWatcher.AnnualHighPrices[k][1] < v[3] then
-            priceWatcher.AnnualHighPrices[k][1] = v[3]
-        end
-        local annualHighPrice = 0
-        for i = 1,13 do
-            if priceWatcher.AnnualHighPrices[k][i] > annualHighPrice then
-                annualHighPrice = priceWatcher.AnnualHighPrices[k][i]
+        for k,v in pairs(currentHighPrices) do
+            DebugUtil.printTableRecursively(priceWatcher.AnnualHighPrices)
+            if priceWatcher.AnnualHighPrices[k][1] < v[3] then
+                priceWatcher.AnnualHighPrices[k][1] = v[3]
+            end
+            local annualHighPrice = 0
+            for i = 1,13 do
+                if priceWatcher.AnnualHighPrices[k][i] > annualHighPrice then
+                    annualHighPrice = priceWatcher.AnnualHighPrices[k][i]
+                end
+            end
+            if priceWatcher.AllTimeHighPrices[k] <= v[3] or priceWatcher.AllTimeHighPrices[k] == nil then
+                priceWatcher.AllTimeHighPrices[k] = v[3]
+                priceWatcher.notifyClient(k, 1, v[1], v[2], v[3], nil, nil)
+                tableIsDirty = true
+            elseif annualHighPrice <= v[3] or priceWatcher.AnnualHighPrices[k] == nil then
+                priceWatcher.AnnualHighPrices[k][1] = v
+                priceWatcher.notifyClient(k, 2, v[1], v[2], v[3], nil, nil)
+                tableIsDirty = true
+            elseif (annualHighPrice * priceWatcher.TARGET_PERCENT_OF_MAX) <= v[3] then
+                local high = math.ceil(priceWatcher.TARGET_PERCENT_OF_MAX * 100)
+                priceWatcher.notifyClient(k, 3, v[1], v[2], v[3], high, annualHighPrice)
             end
         end
-        if priceWatcher.AllTimeHighPrices[k] <= v[3] or priceWatcher.AllTimeHighPrices[k] == nil then
-            priceWatcher.AllTimeHighPrices[k] = v[3]
-            priceWatcher.notifyClient(k, 1, v[1], v[2], v[3], nil, nil)
-            --g_currentMission.hud:addSideNotification(priceWatcher.ALL_TIME_HIGH_COLOR, string.format(g_i18n:getText("PW_NEW_ALL_TIME_MAX"), v[1], v[3], v[2]), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
-            tableIsDirty = true
-        elseif annualHighPrice <= v[3] or priceWatcher.AnnualHighPrices[k] == nil then
-            priceWatcher.AnnualHighPrices[k][1] = v
-            priceWatcher.notifyClient(k, 2, v[1], v[2], v[3], nil, nil)
-            --g_currentMission.hud:addSideNotification(priceWatcher.NEW_TWELVE_MONTH_HIGH_COLOR, string.format(g_i18n:getText("PW_NEW_TWELVE_MONTH_HIGH"), v[1], v[3], v[2]), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
-            tableIsDirty = true
-        elseif (annualHighPrice * priceWatcher.TARGET_PERCENT_OF_MAX) <= v[3] then
-            local high = math.ceil(priceWatcher.TARGET_PERCENT_OF_MAX * 100)
-            priceWatcher.notifyClient(k, 3, v[1], v[2], v[3], high, annualHighPrice)
-            --g_currentMission.hud:addSideNotification(priceWatcher.HIGH_PRICE_COLOR, string.format(g_i18n:getText("PW_CLOSE_MAX"), v[1], high, v[2], v[3], annualHighPrice), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
+        if tableIsDirty then
+            Logging.info("[PW] - Tables Updated")
+            tableIsDirty = false
         end
-    end
-    if tableIsDirty then
-        Logging.info("[PW] - Tables Updated")
-        tableIsDirty = false
     end
 end
 
