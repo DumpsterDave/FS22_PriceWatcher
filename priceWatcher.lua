@@ -58,14 +58,14 @@ priceWatcher.AllTimeHighPrices = {}
 priceWatcher.AnnualHighPrices = {}
 priceWatcher.configXML = nil
 priceWatcher.TrackPrices = {}
+priceWatcher.DEBUGMODE = false
 addModEventListener(priceWatcher)
 
 function priceWatcher:loadMap(name)
-    Logging.info("[PW] Loading priceWatcher v" .. priceWatcher.VERSION)
+    priceWatcher.info("Loading Price Watcher v" .. priceWatcher.VERSION)
     priceWatcher.FillTypes = g_fillTypeManager.fillTypes
     priceWatcher.difficultyMult = g_currentMission.economyManager:getPriceMultiplier()
-
-    Logging.info("[PW] Detected difficulty multiplier: " .. priceWatcher.difficultyMult)
+    priceWatcher.debug("Detected difficulty multiplier: " .. priceWatcher.difficultyMult)
     local path = g_currentMission.missionInfo.savegameDirectory
     if path ~= nil then
         priceWatcher.xmlPath = path .. "/priceWatcher.xml"
@@ -88,13 +88,14 @@ function priceWatcher:loadMap(name)
     g_messageCenter:subscribe(MessageType.HOUR_CHANGED, priceWatcher.checkPrices, priceWatcher)
     g_messageCenter:subscribe(MessageType.PERIOD_CHANGED, priceWatcher.rollPeriod, priceWatcher)
     FSBaseMission.saveSavegame = Utils.appendedFunction(FSBaseMission.saveSavegame, priceWatcher.saveSavegame)
+    priceWatcher.info("Price Watcher loading complete")
     --InGameMenuPricesFrame.updateFluctuations = Utils.overwrittenFunction(InGameMenuPricesFrame.updateFluctuations, priceWatcher.updateFluctuations)
     --Gui:loadProfiles(priceWatcher.BASE_DIRECTORY .. "/presets/guiPresets.xml")
 end
 
 function priceWatcher.saveSavegame()
     if g_server ~= nil then
-        Logging.info("Savegame Detected, writing price data...")
+        priceWatcher.info("Savegame detected.  Writing price data...")
         priceWatcher.saveToXML()
     end
 end
@@ -112,7 +113,7 @@ function priceWatcher.saveToXML()
         end
     end
     saveXMLFile(xmlFile)
-    Logging.info("[PW] - Price data saved")
+    priceWatcher.info("Price data saved")
 end
 
 function priceWatcher.parseXmlFile()
@@ -127,14 +128,14 @@ function priceWatcher.parseXmlFile()
             end
             priceWatcher.AnnualHighPrices[saveSafeName] = periods
             priceWatcher.AllTimeHighPrices[saveSafeName] = Utils.getNoNil(getXMLFloat(xml, "priceWatcher.FillTypes." .. saveSafeName .. "#AllTimeHigh"), 0)
-            Logging.info(string.format("[PW] Loaded price data for %s: {%.3f, %.3f}", fillType.title, priceWatcher.AnnualHighPrices[saveSafeName][1], priceWatcher.AllTimeHighPrices[saveSafeName]))
+            priceWatcher.info(string.format("Loaded price data for %s: {%.3f, %.3f}", fillType.title, priceWatcher.AnnualHighPrices[saveSafeName][1], priceWatcher.AllTimeHighPrices[saveSafeName]))
         end
     end
     delete(xml)
 end
 
 function priceWatcher.loadConfig()
-    Logging.info("[PW] - Loading mod settings")
+    priceWatcher.info("Loading client settings")
     local xmlFile = loadXMLFile("priceWatcher", priceWatcher.configXML)
     local trackedFillTypes = 0
     for _,fillType in ipairs(g_fillTypeManager.fillTypes) do
@@ -142,24 +143,16 @@ function priceWatcher.loadConfig()
         priceWatcher.TrackPrices[saveSafeName] = Utils.getNoNil(getXMLBool(xmlFile, "priceWatcher.Monitor." .. saveSafeName), false)
         if priceWatcher.TrackPrices[saveSafeName] ~= false then
             trackedFillTypes = trackedFillTypes + 1
-            Logging.info("[PW] - " .. fillType.title .. " Enabled = TRUE")
+            priceWatcher.info(fillType.title .. " = ENABLED")
         end
     end
-    Logging.info("[PW] - Tracking " .. trackedFillTypes .. " fill types")
+    priceWatcher.info("Tracking " .. trackedFillTypes .. " fill types")
     priceWatcher.TARGET_PERCENT_OF_MAX = Utils.getNoNil(getXMLFloat(xmlFile, "priceWatcher.PriceThreshold"), 0.95)
     priceWatcher.NOTIFICATION_DURATION = Utils.getNoNil(getXMLInt(xmlFile, "priceWatcher.NotificationDuration"), 10) * 1000
-    DebugUtil.printTableRecursively(priceWatcher.ALL_TIME_HIGH_COLOR)
     priceWatcher.ALL_TIME_HIGH_COLOR = string.getVectorN(getXMLString(xmlFile, "priceWatcher.AllTimeHighColor"), 4) or {0.767, 0.006, 0.006, 1}
-    DebugUtil.printTableRecursively(priceWatcher.ALL_TIME_HIGH_COLOR)
-    DebugUtil.printTableRecursively(priceWatcher.TWELVE_MONTH_HIGH_COLOR)
     priceWatcher.TWELVE_MONTH_HIGH_COLOR = string.getVectorN(getXMLString(xmlFile, "priceWatcher.AnnualHighColor"), 4) or {1, 0.687, 0, 1}
-    DebugUtil.printTableRecursively(priceWatcher.TWELVE_MONTH_HIGH_COLOR)
-    DebugUtil.printTableRecursively(priceWatcher.NEW_TWELVE_MONTH_HIGH_COLOR)
     priceWatcher.HIGH_PRICE_COLOR =string.getVectorN(getXMLString(xmlFile, "priceWatcher.NewAnnualHighColor"), 4) or {0.0976, 0.624, 0, 1}
-    DebugUtil.printTableRecursively(priceWatcher.NEW_TWELVE_MONTH_HIGH_COLOR)
-    DebugUtil.printTableRecursively(priceWatcher.HIGH_PRICE_COLOR)
     priceWatcher.HIGH_PRICE_COLOR =string.getVectorN(getXMLString(xmlFile, "priceWatcher.HighPriceColor"), 4) or {0, 0.235, 0.797, 1}
-    DebugUtil.printTableRecursively(priceWatcher.HIGH_PRICE_COLOR)
 end
 
 function priceWatcher.initializePriceData()
@@ -204,7 +197,7 @@ function priceWatcher.initializeConfig()
     setXMLString(xmlFile, "priceWatcher.NewAnnualHighColor", priceWatcher.vector4ToString(priceWatcher.NEW_TWELVE_MONTH_HIGH_COLOR))
     setXMLString(xmlFile, "priceWatcher.HighPriceColor", priceWatcher.vector4ToString(priceWatcher.HIGH_PRICE_COLOR))
     saveXMLFile(xmlFile)
-    Logging.info("[PW] - Initialized config file to " .. priceWatcher.configXML)
+    priceWatcher.info("Initialized config file to " .. priceWatcher.configXML)
 end
 
 function priceWatcher.rollPeriod() 
@@ -229,7 +222,6 @@ function priceWatcher.stringToVector4(str)
     for part in string.gmatch(str, "([%s]+)") do
         table.insert(retTable, part)
     end
-    DebugUtil.printTableRecursively(retTable)
     return retTable
 end
 
@@ -248,7 +240,7 @@ end
 
 function priceWatcher.checkPrices()
     if g_server ~= nil or g_dedicatedServer ~= nil then
-        Logging.info("[PW] - Checking Prices")
+        priceWatcher.debug("Checking prices")
         local tableIsDirty = false
         local currentHighPrices = {}
         for _,sellingStation in pairs(g_currentMission.economyManager.sellingStations) do
@@ -262,7 +254,6 @@ function priceWatcher.checkPrices()
             end
         end
         for k,v in pairs(currentHighPrices) do
-            DebugUtil.printTableRecursively(priceWatcher.AnnualHighPrices)
             if priceWatcher.AnnualHighPrices[k][1] < v[3] then
                 priceWatcher.AnnualHighPrices[k][1] = v[3]
             end
@@ -286,7 +277,7 @@ function priceWatcher.checkPrices()
             end
         end
         if tableIsDirty then
-            Logging.info("[PW] - Tables Updated")
+            priceWatcher.debug("Tables udpated")
             tableIsDirty = false
         end
     end
@@ -301,7 +292,7 @@ function priceWatcher.notifyClient(saveSafeName, notificationType, fillTypeTitle
         elseif notificationType == 3 then
             g_currentMission.hud:addSideNotification(priceWatcher.HIGH_PRICE_COLOR, string.format(g_i18n:getText("PW_CLOSE_MAX"), fillTypeTitle, pct, fillStationName, fillPrice, annualHigh), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
         else
-            Logging.warning("[PW] - notifyClient passed unknown notifcationType: " .. notificationType)
+            priceWatcher.warning("notifyClient passed unknown notificationType: " .. notificationType)
         end
     end
 end
@@ -421,4 +412,22 @@ function priceWatcher.printTableRecursivelyToXML(value,parentName, depth, maxDep
 		end
 		k = k + 1
 	end
+end
+
+function priceWatcher.info(message)
+    print(string.format("PW::INFO    - %s", tostring(message)))
+end
+
+function priceWatcher.warning(message)
+    print(string.format("PW::WARNING - %s", tostring(message)))
+end
+
+function priceWatcher.error(message)
+    print(string.format("PW::ERROR   - %s", tostring(message)))
+end
+
+function priceWatcher.debug(message)
+    if priceWatcher.DEBUGMODE == true then
+        print(string.format("PW::DEBUG   - %s", tostring(message)))
+    end
 end
