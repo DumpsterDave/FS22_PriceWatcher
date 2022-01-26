@@ -59,6 +59,7 @@ priceWatcher.AnnualHighPrices = {}
 priceWatcher.configXML = nil
 priceWatcher.TrackPrices = {}
 priceWatcher.DEBUGMODE = false
+priceWatcher.MIN_XML_VERSION = 1010001
 addModEventListener(priceWatcher)
 
 function priceWatcher:loadMap(name)
@@ -67,6 +68,10 @@ function priceWatcher:loadMap(name)
     priceWatcher.difficultyMult = g_currentMission.economyManager:getPriceMultiplier()
     priceWatcher.debug("Detected difficulty multiplier: " .. priceWatcher.difficultyMult)
     local path = g_currentMission.missionInfo.savegameDirectory
+    if fileExists(priceWatcher.MOD_SETTINGS .. "/priceWatcherDebugEnable") then
+        priceWatcher.DEBUGMODE = true
+        priceWatcher.info("DEBUG MODE ENABLED")
+    end
     if path ~= nil then
         priceWatcher.xmlPath = path .. "/priceWatcher.xml"
     else
@@ -118,6 +123,15 @@ end
 
 function priceWatcher.parseXmlFile()
     local xml = loadXMLFile("priceWatcher", priceWatcher.xmlPath)
+    local xmlVersionString = getXMLString(xml, "priceWatcher.version")
+    local xmlVersion = priceWatcher.getVersion(xmlVersionString)
+    priceWatcher.debug("XML Version: " .. xmlVersion .. "(" .. xmlVersionString .. ")")
+    if xmlVersion < priceWatcher.MIN_XML_VERSION then
+        priceWatcher.warning("XML Version " .. xmlVersion .. " < " .. priceWatcher.MIN_XML_VERSION .. "(Min Req Ver).  New price data will be generated.")
+        delete(xml)
+        priceWatcher.initializePriceData()
+        return
+    end
     for _,fillType in ipairs(g_fillTypeManager.fillTypes) do
         local saveSafeName = string.upper(string.gsub(fillType.title, " ", "_"))
         if priceWatcher.DO_NOT_TRACK_FILLTYPES[saveSafeName] == nil then
@@ -125,10 +139,11 @@ function priceWatcher.parseXmlFile()
             for i = 1, 13 do
                 local price = getXMLFloat(xml, "priceWatcher.FillTypes." .. saveSafeName .. ".period" .. i)
                 periods[i] = Utils.getNoNil(price, 0)
+                priceWatcher.debug("Loaded " .. saveSafeName .. " period" .. i .. ": $" .. price .. ":" .. periods[i])
             end
             priceWatcher.AnnualHighPrices[saveSafeName] = periods
             priceWatcher.AllTimeHighPrices[saveSafeName] = Utils.getNoNil(getXMLFloat(xml, "priceWatcher.FillTypes." .. saveSafeName .. "#AllTimeHigh"), 0)
-            priceWatcher.info(string.format("Loaded price data for %s: {%.3f, %.3f}", fillType.title, priceWatcher.AnnualHighPrices[saveSafeName][1], priceWatcher.AllTimeHighPrices[saveSafeName]))
+            priceWatcher.debug(string.format("Loaded price data for %s: {%.3f, %.3f}", fillType.title, priceWatcher.AnnualHighPrices[saveSafeName][1], priceWatcher.AllTimeHighPrices[saveSafeName]))
         end
     end
     delete(xml)
@@ -143,7 +158,7 @@ function priceWatcher.loadConfig()
         priceWatcher.TrackPrices[saveSafeName] = Utils.getNoNil(getXMLBool(xmlFile, "priceWatcher.Monitor." .. saveSafeName), false)
         if priceWatcher.TrackPrices[saveSafeName] ~= false then
             trackedFillTypes = trackedFillTypes + 1
-            priceWatcher.info(fillType.title .. " = ENABLED")
+            priceWatcher.debug(fillType.title .. " = ENABLED")
         end
     end
     priceWatcher.info("Tracking " .. trackedFillTypes .. " fill types")
@@ -205,8 +220,10 @@ function priceWatcher.rollPeriod()
         local saveSafeName = string.upper(string.gsub(fillType.title, " ", "_"))
         if (priceWatcher.DO_NOT_TRACK_FILLTYPES[saveSafeName] == nil) then
             local max = fillType.pricePerLiter
-            for i = 1,12 do
-                priceWatcher.AnnualHighPrices[saveSafeName][i + 1] = priceWatcher.AnnualHighPrices[saveSafeName][i]
+            local index = 13
+            while index > 1 do
+                priceWatcher.AnnualHighPrices[saveSafeName][index] = priceWatcher.AnnualHighPrices[saveSafeName][index - 1]
+                index = index - 1
             end
             priceWatcher.AnnualHighPrices[saveSafeName][1] = priceWatcher.getCurrentHighPrice(fillType)
         end
@@ -265,15 +282,18 @@ function priceWatcher.checkPrices()
             end
             if priceWatcher.AllTimeHighPrices[k] <= v[3] or priceWatcher.AllTimeHighPrices[k] == nil then
                 priceWatcher.AllTimeHighPrices[k] = v[3]
+                priceWatcher.debug(string.format("NotifyClient: %s, %s, %s, %s, %s, %s, %s", tostring(k), tostring(1), tostring(v[1]), tostring(v[2]), tostring(v[3]), tostring(nil), tostring(nil)))
                 priceWatcher.notifyClient(k, 1, v[1], v[2], v[3], nil, nil)
                 tableIsDirty = true
             elseif annualHighPrice <= v[3] or priceWatcher.AnnualHighPrices[k] == nil then
-                priceWatcher.AnnualHighPrices[k][1] = v
+                priceWatcher.AnnualHighPrices[k][1] = v[3]
+                priceWatcher.debug(string.format("NotifyClient: %s, %s, %s, %s, %s, %s, %s", tostring(k), tostring(2), tostring(v[1]), tostring(v[2]), tostring(v[3]), tostring(nil), tostring(nil)))
                 priceWatcher.notifyClient(k, 2, v[1], v[2], v[3], nil, nil)
                 tableIsDirty = true
             elseif (annualHighPrice * priceWatcher.TARGET_PERCENT_OF_MAX) <= v[3] then
                 local high = math.ceil(priceWatcher.TARGET_PERCENT_OF_MAX * 100)
                 priceWatcher.notifyClient(k, 3, v[1], v[2], v[3], high, annualHighPrice)
+                priceWatcher.debug(string.format("NotifyClient: %s, %s, %s, %s, %s, %s, %s", tostring(k), tostring(3), tostring(v[1]), tostring(v[2]), tostring(v[3]), tostring(high), tostring(annualHighPrice)))
             end
         end
         if tableIsDirty then
@@ -412,6 +432,14 @@ function priceWatcher.printTableRecursivelyToXML(value,parentName, depth, maxDep
 		end
 		k = k + 1
 	end
+end
+
+function priceWatcher.getVersion(versionString)
+    local versionTable = {}
+    for part in string.gmatch(versionString, "([%d]+)") do
+        table.insert(versionTable, tonumber(part))
+    end
+    return versionTable[1] * 1000000 + versionTable[2] * 10000 + versionTable[3] * 100 + versionTable[4]
 end
 
 function priceWatcher.info(message)
