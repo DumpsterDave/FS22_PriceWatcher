@@ -1,3 +1,5 @@
+source(Utils.getFilename("events/PriceWatcherEvents.lua", g_currentModDirectory))
+
 priceWatcher = {}
 priceWatcher.VERSION = g_modManager:getModByName(g_currentModName).version
 priceWatcher.MOD_NAME = g_currentModName
@@ -283,23 +285,28 @@ function priceWatcher.checkPrices()
             if priceWatcher.AllTimeHighPrices[k] <= v[3] or priceWatcher.AllTimeHighPrices[k] == nil then
                 priceWatcher.AllTimeHighPrices[k] = v[3]
                 priceWatcher.debug(string.format("NotifyClient: %s, %s, %s, %s, %s, %s, %s", tostring(k), tostring(1), tostring(v[1]), tostring(v[2]), tostring(v[3]), tostring(nil), tostring(nil)))
-                priceWatcher.notifyClient(k, 1, v[1], v[2], v[3], nil, nil)
+                --priceWatcher.notifyClient(k, 1, v[1], v[2], v[3], nil, nil)
+                PriceWatcherEvent.sendEvent(k, 1, v[1], v[2], v[3], 0, 0)
                 tableIsDirty = true
             elseif annualHighPrice <= v[3] or priceWatcher.AnnualHighPrices[k] == nil then
                 priceWatcher.AnnualHighPrices[k][1] = v[3]
                 priceWatcher.debug(string.format("NotifyClient: %s, %s, %s, %s, %s, %s, %s", tostring(k), tostring(2), tostring(v[1]), tostring(v[2]), tostring(v[3]), tostring(nil), tostring(nil)))
-                priceWatcher.notifyClient(k, 2, v[1], v[2], v[3], nil, nil)
+                --priceWatcher.notifyClient(k, 2, v[1], v[2], v[3], nil, nil)
+                PriceWatcherEvent.sendEvent(k, 2, v[1], v[2], v[3], 0, 0)
                 tableIsDirty = true
             elseif (annualHighPrice * priceWatcher.TARGET_PERCENT_OF_MAX) <= v[3] then
-                local high = math.ceil(priceWatcher.TARGET_PERCENT_OF_MAX * 100)
-                priceWatcher.notifyClient(k, 3, v[1], v[2], v[3], high, annualHighPrice)
-                priceWatcher.debug(string.format("NotifyClient: %s, %s, %s, %s, %s, %s, %s", tostring(k), tostring(3), tostring(v[1]), tostring(v[2]), tostring(v[3]), tostring(high), tostring(annualHighPrice)))
+                local pct = math.ceil(priceWatcher.TARGET_PERCENT_OF_MAX * 100)
+                --priceWatcher.notifyClient(k, 3, v[1], v[2], v[3], pct, annualHighPrice)
+                PriceWatcherEvent.sendEvent(k, 3, v[1], v[2], v[3], pct, annualHighPrice)
+                priceWatcher.debug(string.format("NotifyClient: %s, %s, %s, %s, %s, %s, %s", tostring(k), tostring(3), tostring(v[1]), tostring(v[2]), tostring(v[3]), tostring(pct), tostring(annualHighPrice)))
             end
         end
         if tableIsDirty then
             priceWatcher.debug("Tables udpated")
             tableIsDirty = false
         end
+    else
+        priceWatcher.debug("IS NOT SERVER, NO PRICE CHECK HERE")
     end
 end
 
@@ -314,6 +321,8 @@ function priceWatcher.notifyClient(saveSafeName, notificationType, fillTypeTitle
         else
             priceWatcher.warning("notifyClient passed unknown notificationType: " .. notificationType)
         end
+    else
+        priceWatcher.debug("Received notification for ignored fillType: " .. fillTypeTitle)
     end
 end
 
