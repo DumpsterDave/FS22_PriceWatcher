@@ -64,6 +64,7 @@ priceWatcher.DEBUGMODE = false
 priceWatcher.MIN_XML_VERSION = 1010001
 addModEventListener(priceWatcher)
 
+--source(Utils.getFilename("hud/priceWatcherHud.lua", priceWatcher.BASE_DIRECTORY))
 function priceWatcher:loadMap(name)
     priceWatcher.info("Loading Price Watcher v" .. priceWatcher.VERSION)
     priceWatcher.FillTypes = g_fillTypeManager.fillTypes
@@ -141,7 +142,7 @@ function priceWatcher.parseXmlFile()
             for i = 1, 13 do
                 local price = getXMLFloat(xml, "priceWatcher.FillTypes." .. saveSafeName .. ".period" .. i)
                 periods[i] = Utils.getNoNil(price, 0)
-                priceWatcher.debug("Loaded " .. saveSafeName .. " period" .. i .. ": $" .. price .. ":" .. periods[i])
+                priceWatcher.debug("Loaded " .. saveSafeName .. " period" .. i .. ": $" .. Utils.getNoNil(price, 0) .. ":" .. periods[i])
             end
             priceWatcher.AnnualHighPrices[saveSafeName] = periods
             priceWatcher.AllTimeHighPrices[saveSafeName] = Utils.getNoNil(getXMLFloat(xml, "priceWatcher.FillTypes." .. saveSafeName .. "#AllTimeHigh"), 0)
@@ -313,10 +314,13 @@ end
 function priceWatcher.notifyClient(saveSafeName, notificationType, fillTypeTitle, fillStationName, fillPrice, pct, annualHigh)
     if priceWatcher.TrackPrices[saveSafeName] ~= false then
         if notificationType == 1 then
+            priceWatcher.debug("Received all time high notification for " .. fillTypeTitle)
             g_currentMission.hud:addSideNotification(priceWatcher.ALL_TIME_HIGH_COLOR, string.format(g_i18n:getText("PW_NEW_ALL_TIME_MAX"), fillTypeTitle, fillPrice, fillStationName), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
         elseif notificationType == 2 then
+            priceWatcher.debug("Received annual high notification for " .. fillTypeTitle)
             g_currentMission.hud:addSideNotification(priceWatcher.NEW_TWELVE_MONTH_HIGH_COLOR, string.format(g_i18n:getText("PW_NEW_TWELVE_MONTH_HIGH"), fillTypeTitle, fillPrice, fillStationName), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
         elseif notificationType == 3 then
+            priceWatcher.debug("Received price threshold notification for " .. fillTypeTitle)
             g_currentMission.hud:addSideNotification(priceWatcher.HIGH_PRICE_COLOR, string.format(g_i18n:getText("PW_CLOSE_MAX"), fillTypeTitle, pct, fillStationName, fillPrice, annualHigh), priceWatcher.NOTIFICATION_DURATION, GuiSoundPlayer.SOUND_SAMPLES.NOTIFICATION)
         else
             priceWatcher.warning("notifyClient passed unknown notificationType: " .. notificationType)
