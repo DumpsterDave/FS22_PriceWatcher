@@ -5,9 +5,11 @@
     <iconFilename>icon.dds</iconFilename>
     <title>
         <en>PriceWatcher by DEFCON 1 Gaming.com</en>
+        <pl>Analizator cen</pl>
     </title>
     <description>
         <en>Monitors the economy for price changes and notifies in game when prices hit new highs or 90% of their previously recorded high points.</en>
+        <pl>Monitoruje gospodarkę pod kątem zmian cen i powiadamia w grze, gdy ceny osiągają nowe maksima lub 90% wcześniej zarejestrowanych szczytów.</pl>
     </description>
     
     <extraSourceFiles>
