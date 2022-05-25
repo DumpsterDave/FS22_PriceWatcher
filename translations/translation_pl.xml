@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<l10n>
+    <translationContributors>Ziuta</translationContributors>
+    <locale>pl</locale>
+    <texts>
+        <text name="PW_NEW_ALL_TIME_MAX" text="%s ($%.3f): Wysoka cena ciągłej sprzedaży w %s." />
+        <text name="PW_NEW_TWELVE_MONTH_HIGH" text="%s ($%.3f): Nowa roczna wysoka cena sprzedaży w %s." />
+        <text name="PW_CLOSE_MAX" text="%s: %d%% lub więcej rocznego maksimum w %s.  $%.3f/$%.3f" />
+    </texts>
+</l10n>
